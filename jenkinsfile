@@ -1,0 +1,54 @@
+pipeline
+{
+    agent any
+    stages
+    {
+        stage('Download source')
+        {
+            steps {
+                script {
+                    res = sh(script: "test -d /home/source/MF.DeveloperConsole && echo '1' || echo '0' ", returnStdout: true).trim()
+                    if(res=='1'){
+                        sh 'rm -R /home/source/MF.DeveloperConsole'
+                    }
+                }
+
+				sh 'git clone https://github.com/mistek131995/Freedom.MF.DeveloperConsole.git /home/source/MF.DeveloperConsole'
+            }
+        }
+        stage('Build image')
+        {
+            steps {
+				sh 'docker build -t mf.developer_console.${BUILD_NUMBER} /home/source/MF.DeveloperConsole'
+            }
+        }
+        stage('Stop container')
+        {
+            steps {
+                script{
+                    def containerId = sh (script: 'docker ps -q -f name=mf.developer_console', returnStdout: true)
+
+                    if(containerId != ''){
+                        sh "docker stop ${containerId}"
+                    }
+                }
+            }
+        }
+        stage('Run container')
+        {
+            steps {
+				sh 'docker run -d -p 81:80 --name=mf.developer_console.${BUILD_NUMBER} --restart=always mf.developer_console.${BUILD_NUMBER}'
+            }
+        }
+        stage('Clear images') {
+            steps {
+                sh "docker system prune -af"
+            }
+        }
+        stage('Delete source') {
+            steps {
+                sh 'rm -R /home/source/MF.DeveloperConsole'
+            }
+        }
+    }
+}
